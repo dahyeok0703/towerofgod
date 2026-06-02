@@ -180,7 +180,34 @@ def _ensure_actor(actor):
     actor.setdefault("status", [])
     actor.setdefault("skills", [])
     actor.setdefault("name", actor.get("id", "이름없음"))
+    _apply_equipment(actor)
     return actor
+
+
+def _apply_equipment(actor):
+    """장비(무기/방어구/장신구)의 스탯보정·효과를 전투 수치에 반영.
+    스탯보정 → 유효 스탯, 효과.최대HP/최대신수 → 자원 상한, 피해감소/명중 → 전투 보정.
+    (기본 스탯 자체는 보존; 여기서 만든 유효 스탯은 로드된 사본에만 적용된다.)"""
+    actor.setdefault("_def_reduce", 0.0)
+    actor.setdefault("_acc_bonus", 0)
+    gear = actor.get("장비")
+    if not isinstance(gear, dict):
+        return
+    for slot in ("무기", "방어구", "장신구"):
+        item = gear.get(slot)
+        if not isinstance(item, dict):
+            continue
+        for st, v in (item.get("스탯보정") or {}).items():
+            if st in actor["stats"]:
+                actor["stats"][st] += v
+        eff = item.get("효과") or {}
+        actor["hp_max"] += int(eff.get("최대HP", 0))
+        actor["shinsu_max"] += int(eff.get("최대신수", 0))
+        actor["_def_reduce"] += float(eff.get("피해감소", 0))
+        actor["_acc_bonus"] += int(eff.get("명중", 0))
+    actor["_def_reduce"] = min(0.75, actor["_def_reduce"])  # 경감 상한
+    actor["hp"] = min(actor["hp"], actor["hp_max"])
+    actor["shinsu"] = min(actor["shinsu"], actor["shinsu_max"])
 
 
 def governing_stat(actor, skill):
@@ -299,8 +326,9 @@ def resolve_exchange(rng, attacker, defender, skill):
 
     # 효과타입별 처리 ------------------------------------------------------
     if etype in ("피해", "디버프"):
-        # 명중 판정
+        # 명중 판정 (장비 명중 보정 포함)
         acc = HIT_BASE + (effective_agi(attacker) - effective_agi(defender)) * HIT_AGI_W
+        acc += attacker.get("_acc_bonus", 0)
         acc = max(HIT_MIN, min(HIT_MAX, round(acc)))
         hit_roll = rng.d100()
         hit = hit_roll <= acc
@@ -319,6 +347,7 @@ def resolve_exchange(rng, attacker, defender, skill):
             res = defender["stats"]["신수저항"]
             mitig = 100 / (100 + res * RES_W)
             dmg = raw * mitig * incoming_mult(defender)
+            dmg *= (1 - defender.get("_def_reduce", 0))  # 장비 피해감소
             if crit:
                 dmg *= CRIT_MULT
             dmg = max(1, round(dmg))
