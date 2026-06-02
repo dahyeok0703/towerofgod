@@ -67,16 +67,34 @@ python3 engine/resolve.py combat --mode step --state save/combat.json \
 - 단, **불공정한 즉사**는 피한다 — 정보가 주어졌고 플레이어가 선택한 결과여야 한다.
 - HP가 0이 되면 사망/탈락 처리하며, 세이브에 반영한다(되돌리지 않는다).
 
+### 철칙 ④  — 세이브 무결성 (No Corruption, No Cheating)
+
+- **턴 시작마다 `engine/validate.py save/player.json` 으로 검증**한다. 오류가 나오면
+  **즉시 진행을 중단**하고 사용자에게 알린 뒤, 마지막 정상 백업 복원을 제안한다.
+- **턴 끝마다 `engine/save.py autosave`** 로 백업한다(층 이동·전투 종료·퀘스트 완료 시 필수).
+- GM은 **validate 를 통과하는 정상 범위 안에서만** 상태를 바꾼다.
+  스탯/HP/돈/경험치를 공식·규칙 밖으로 임의 조정하지 않는다(**GM 자신의 조작도 금지**).
+  성장은 `character.py`, 거래는 `inventory.py`, 보상은 `quest.py` 등 **엔진을 통해서만** 변경한다.
+```bash
+python3 engine/validate.py save/player.json                 # 턴 시작 검증
+python3 engine/save.py autosave --reason 전투종료            # 턴 끝 자동백업
+python3 engine/save.py load --id <스냅id>                    # 손상 시 복원
+```
+
 ---
 
 ## 2. 매 턴 진행 절차
 
 매 턴은 아래 순서를 **기계적으로** 따른다.
 
+0. **검증** — 턴 시작 시 **`engine/validate.py save/player.json`** 을 호출한다.
+   **오류가 있으면 진행을 멈추고** 사용자에게 알린 뒤, 마지막 정상 백업 복원을 제안한다.
 1. **읽기** — `save/player.json`, `save/world_state.json` 을 읽어 현재 상태를 파악한다.
-2. **판정(필요 시)** — 결과가 걸린 행동이면 `engine/resolve.py` 를 호출한다. *(4단계 전까지는 보류)*
+2. **판정(필요 시)** — 결과가 걸린 행동이면 `engine/resolve.py` 를 호출한다.
 3. **출력** — 아래 "출력 형식"에 맞춰 응답한다.
 4. **저장** — 변경분을 `save/player.json` / `save/world_state.json` 에 기록한다.
+5. **자동백업** — 턴 끝에 **`engine/save.py autosave --reason <사유>`** 를 호출한다.
+   특히 **층 이동·전투 종료·퀘스트 완료** 시에는 반드시 자동백업한다.
 
 ### 2.1 매 턴 출력 형식 (고정)
 

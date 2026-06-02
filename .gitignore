@@ -31,3 +31,8 @@ tower-of-god/save/*.tmp
 tower-of-god/save/autosave_*.json
 # 런타임 생성 동료 액터(플레이 중 생성)
 tower-of-god/save/allies/
+# 세이브 백업 스냅샷(플레이 중 생성)
+tower-of-god/save/backups/
+# 실제 플레이 세이브(예시 파일만 추적)
+tower-of-god/save/player.json
+tower-of-god/save/world_state.json
