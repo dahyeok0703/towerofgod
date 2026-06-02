@@ -143,16 +143,39 @@ def load_actor(ref, enemies):
     return _ensure_actor(actor)
 
 
+# 세이브(한국어 키) → 엔진 내부 키 매핑. character.py 가 만드는 player.json 호환.
+SAVE_KEYMAP = {
+    "이름": "name", "레벨": "level", "스탯": "stats",
+    "HP": "hp", "최대HP": "hp_max", "신수": "shinsu", "최대신수": "shinsu_max",
+    "배운스킬": "skills", "상태이상": "status",
+}
+
+
+def derive_hp_max(stats, level):
+    """최대 HP 파생 공식 (rules/progression.md 와 동일)."""
+    return 30 + stats["체력"] * 4 + level * 2
+
+
+def derive_shinsu_max(stats):
+    """최대 신수(SP) 파생 공식 (rules/progression.md 와 동일)."""
+    return 10 + stats["정신력"] * 2 + stats["신수조작"]
+
+
 def _ensure_actor(actor):
+    # 한국어 세이브 키를 내부 키로 정규화(없을 때만)
+    for ko, en in SAVE_KEYMAP.items():
+        if ko in actor and en not in actor:
+            actor[en] = actor[ko]
+
     actor.setdefault("stats", {})
     for k in ("근력", "민첩", "체력", "신수조작", "신수저항", "정신력"):
         actor["stats"].setdefault(k, STAT_NEUTRAL)
     s = actor["stats"]
     if "hp_max" not in actor:
-        actor["hp_max"] = 30 + s["체력"] * 4 + actor.get("level", 1) * 2
+        actor["hp_max"] = derive_hp_max(s, actor.get("level", 1))
     actor.setdefault("hp", actor["hp_max"])
     if "shinsu_max" not in actor:
-        actor["shinsu_max"] = 10 + s["정신력"] * 2 + s["신수조작"]
+        actor["shinsu_max"] = derive_shinsu_max(s)
     actor.setdefault("shinsu", actor["shinsu_max"])
     actor.setdefault("status", [])
     actor.setdefault("skills", [])

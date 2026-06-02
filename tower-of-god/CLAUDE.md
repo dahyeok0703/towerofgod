@@ -104,8 +104,25 @@ python3 engine/resolve.py combat --mode step --state save/combat.json \
 1. `save/player.json` 의 존재 여부와 유효성을 확인한다.
 2. **세이브가 있으면** → 현재 상태를 요약해 보여주고 **"이어하기"** 로 진행한다.
 3. **세이브가 없으면(또는 비어 있으면)** → **캐릭터 생성**으로 안내한다.
-   - 이름, 지향(스타일/역할), 시작 자원 등을 묻고, 규칙(`rules/`)에 따라 초기 세이브를 만든다.
-4. 어느 경우든 진행 전 현재 층과 목표를 한 줄로 상기시켜 준다.
+   - 이름, 포지션, 이레귤러/일반, 스탯 배분을 묻고 **`engine/character.py create`** 로 만든다.
+   - 스키마는 `save/player.example.json`, 규칙은 `rules/progression.md` 를 따른다.
+
+```bash
+# 대화형 생성(권장) — GM이 플레이어에게 물어가며 진행
+python3 engine/character.py create
+
+# 또는 비대화형(GM이 값을 모아 한 번에)
+python3 engine/character.py create --name "이름" --position fisherman \
+  --irregular false --stat "근력=4,체력=3,민첩=2,신수저항=2,정신력=1" --noninteractive
+```
+
+4. 진행 중 성장은 아래 도구로 세이브에 반영한다(직접 수치 조작 금지).
+```bash
+python3 engine/character.py levelup --actor save/player.json --add-exp 250  # 경험치 반영·레벨업
+python3 engine/character.py learn   --actor save/player.json --skill fish_05  # 조건 충족 시 습득
+```
+
+5. 어느 경우든 진행 전 현재 층과 목표를 한 줄로 상기시켜 준다.
 
 ---
 
