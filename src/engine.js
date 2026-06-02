@@ -79,12 +79,15 @@ export function createCharacter({ name, position, irregular, alloc }) {
 }
 export function levelUp(p) {
   const info = POSITIONS[p.포지션] || { 주력: ["근력", "체력"] };
-  const order = [...info.주력, ...STAT_KEYS.filter((s) => !info.주력.includes(s))];
+  const prim = info.주력;
+  const non = STAT_KEYS.filter((s) => !prim.includes(s)); // 비주력(방어/자원 포함)
   const gains = [];
   while (p.경험치 >= expToNext(p.레벨)) {
     p.경험치 -= expToNext(p.레벨); p.레벨 += 1;
     const pts = STAT_PER_LEVEL + (p.이레귤러여부 ? IRREGULAR_BONUS : 0);
-    for (let i = 0; i < pts; i++) p.스탯[order[i % order.length]] += 1;
+    // 주력 2종은 항상 +1, 나머지 포인트는 비주력을 순환 분배(신수저항·정신력 등도 성장).
+    p.스탯[prim[0]] += 1; if (prim[1]) p.스탯[prim[1]] += 1;
+    for (let k = 0; k < pts - 2; k++) p.스탯[non[(p.레벨 + k) % non.length]] += 1;
     gains.push(p.레벨);
   }
   p.최대HP = deriveHpMax(p.스탯, p.레벨); p.최대신수 = deriveShinsuMax(p.스탯);
@@ -168,7 +171,10 @@ export class Combat {
     this.rng = makeRng(seed);
     this.player = actorFromPlayer(player);
     this.allies = allies.map((a, i) => actorFromPlayer(a, "ally", "a" + i));
-    this.enemies = enemyIds.map((id, i) => actorFromEnemy(id, "e" + i));
+    this.enemies = enemyIds.map((id, i) =>
+      typeof id === "string"
+        ? actorFromEnemy(id, "e" + i)
+        : { ...id, runtimeId: "e" + i, side: "enemy", status: id.status || [], _defReduce: id._defReduce || 0, _accBonus: id._accBonus || 0 });
     this.round = 1; this.status = "ongoing"; this.log = [];
   }
   living(side) { const arr = side === "enemy" ? this.enemies : (side === "ally" ? this.allies : [this.player, ...this.allies]); return arr.filter((a) => a.hp > 0); }
@@ -207,8 +213,9 @@ export function check(stats, statName, difficulty, rng) {
 
 // ── 랭킹 (rank.py) ────────────────────────────────────────────────
 const TIERS = [[50000, "랭커"], [10000, "준랭커"], [4000, "정예"], [1500, "유망주"], [300, "정규등반자"], [0, "무명"]];
+export const floorNum = (id) => (id && id[0] === "p" ? +id.slice(1) : (FLOORS[id]?.floor || 0));
 export function rankResult(p) {
-  const fn = Math.max(FLOORS[p.현재층]?.floor || 0, ...(p.클리어층 || []).map((f) => FLOORS[f]?.floor || 0), 0);
+  const fn = Math.max(floorNum(p.현재층), ...(p.클리어층 || []).map(floorNum), 0);
   const killCp = (p.처치한강적 || []).reduce((s, id) => s + (ENEMIES[id]?.권장전투력 || 0), 0);
   const score = Math.round(fn * 120 + killCp * 1.5 + (p.완료퀘스트 || []).length * 40 + (p.명성 || 0) * 2 + (p.악명 || 0) * 1.2);
   const tier = (TIERS.find(([n]) => score >= n) || [0, "무명"])[1];
@@ -229,3 +236,70 @@ export function pickEvent(p, rng) {
 
 // 평판 기반 구매가 배수 (economy.md)
 export const priceMult = (p) => Math.max(0.7, Math.min(1.3, 1 - (p.명성 || 0) * 0.001 + (p.악명 || 0) * 0.0005));
+
+// ── 134층 탑: 절차적 생성 (손으로 만든 1~15층 이후) ───────────────
+export const TOWER_HEIGHT = 134;        // 정전의 탑 높이
+export const HANDCRAFTED_TOP = 15;      // 손으로 만든 하층 최상단(floor 15)
+
+// 층 구간(원작 구조 참고): 하층/중층/상층
+export function bandOf(n) {
+  if (n <= 20) return "하층";
+  if (n <= 70) return "중층";
+  if (n <= 120) return "상층";
+  return "최상층";
+}
+const ENEMY_NAMES = {
+  하층: ["파수 병기", "관문 추적자", "잠복 기관"],
+  중층: ["중층 감시자", "강철 사냥개", "신수 포식체"],
+  상층: ["상층 집행자", "심연 수호물", "광휘 파괴자"],
+  최상층: ["정점의 시험체", "왕좌의 그림자", "최후의 관문수"],
+};
+
+// 적은 floor 가 아니라 '플레이어 레벨'에 맞춰 스케일한다(레벨 스케일링).
+// 층(n)은 작은 가산 램프로만 작용 → 어떤 레벨이든 공정하고, 과도 레벨이어도 트리비얼하지 않음.
+export function genEnemyActor(n, i, isBoss = false, lv = 1) {
+  const eff = lv + Math.floor(n / 25);
+  // 플레이어보다 살짝 약하게(승부가 나되 출혈은 감당 가능) — 보스만 호각.
+  const s = 10 + Math.round(eff * (isBoss ? 0.8 : 0.62));
+  // 민첩은 낮게 둔다: 비주력 스탯이라 더디게 크는 플레이어의 명중/회피가 무너지지 않도록(공정).
+  const stats = { 근력: s, 민첩: Math.max(6, Math.round(s * 0.5)), 체력: s, 신수조작: Math.max(6, s - 2), 신수저항: Math.round(s * 0.6), 정신력: Math.max(6, s - 3) };
+  const finale = n === TOWER_HEIGHT;
+  const hp = Math.round((24 + eff * 6.5) * (isBoss ? 1.4 : 1) * (finale ? 1.3 : 1));
+  const band = bandOf(n);
+  const name = isBoss ? `${n}층 가디언` : `${ENEMY_NAMES[band][i % ENEMY_NAMES[band].length]} (${n}F)`;
+  const skills = isBoss ? ["fish_05", "fish_06", "fish_02"] : ["fish_02", "fish_05"];
+  return { name, stats, hp, hpMax: hp, shinsu: 80 + n, shinsuMax: 80 + n, skills, status: [], cp: Math.round(n + (isBoss ? 40 : 0)), _proc: true };
+}
+
+// floorN(16..134) 의 절차적 층 메타 생성 (lv: 적 스케일 기준 플레이어 레벨)
+export function genFloor(n, lv = 1) {
+  const band = bandOf(n);
+  const isBoss = n % 10 === 0 || n === TOWER_HEIGHT;
+  // 거점: 5층마다 + 보스 직후(n%10===1) 회복 보장
+  const isHub = !isBoss && (n % 5 === 0 || n % 10 === 1);
+  let kind = "시험층", type = "전투시험";
+  if (isBoss) { kind = "수호자층"; type = "수호자대결"; }
+  else if (isHub) { kind = "거점층"; type = null; }
+  else { type = ["전투시험", "생존시험", "지력시험", "탐색시험", "전투시험"][n % 5]; }
+  const names = {
+    수호자층: `${band} 관문 — ${n}층 수호자의 방`,
+    거점층: `${band} 정거장 — ${n}층 쉼터`,
+    시험층: `${band} 시험 — ${n}층`,
+  };
+  const moods = {
+    수호자층: `${band}의 관문을 지키는 강대한 가디언이 길을 막는다. 공기가 무겁게 짓눌린다.`,
+    거점층: `${band}의 작은 정거장. 등불 아래 상인과 단련장이 있다. 다음 시험 전에 숨을 고른다.`,
+    시험층: `${band}의 시험장. 신수의 밀도가 한층 더 높아져 숨쉬는 것조차 무게가 느껴진다.`,
+  };
+  // 적 수: 후반일수록 다수
+  const count = isBoss ? 1 : (n % 7 === 0 ? 2 : 1);
+  const enemies = type && ["전투시험", "생존시험", "수호자대결"].includes(type)
+    ? Array.from({ length: count }, (_, i) => genEnemyActor(n, i, isBoss, lv)) : [];
+  return {
+    id: "p" + n, floor: n, name: names[kind], kind, band,
+    test: type ? { type, 설명: `${band}의 ${type}. 정직한 난이도다.` } : null,
+    분위기묘사: moods[kind], 적_id목록: [], _procEnemies: enemies,
+    연결: n < TOWER_HEIGHT ? ["p" + (n + 1)] : [],
+    _final: n === TOWER_HEIGHT,
+  };
+}

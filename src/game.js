@@ -4,7 +4,11 @@ import {
   SKILLS, ENEMIES, ITEMS, FLOORS, NPCS, RANKERS, QUESTS, STAT_KEYS, POSITIONS,
   BASE_STAT, CREATION_POOL, CREATION_CAP, createCharacter, levelUp, learnableSkills,
   buildCompanion, Combat, check, makeRng, rankResult, pickEvent, priceMult,
+  genFloor, TOWER_HEIGHT, expToNext,
 } from "./engine.js";
+
+// 손으로 만든 1~15층은 FLOORS, 16~134층은 절차 생성으로 가져온다.
+const getFloor = (fid) => (fid && fid[0] === "p" ? genFloor(+fid.slice(1), (P && P.레벨) || 1) : FLOORS[fid]);
 
 const SAVE_KEY = "tog_full_save";
 const $log = document.getElementById("log");
@@ -19,7 +23,7 @@ const clr = () => ($log.innerHTML = "");
 const gm = (t) => el(`<span class="gm">${t}</span>`, "gm-line");
 const sys = (t) => el(`<span class="sys">⚙ ${t}</span>`, "sys-line");
 function setActions(btns) { $actions.innerHTML = ""; for (const b of btns) { if (!b) continue; const e = document.createElement("button"); e.className = "btn" + (b.cls ? " " + b.cls : ""); e.textContent = b.label; e.onclick = b.onClick; e.disabled = !!b.disabled; $actions.appendChild(e); } }
-function bar() { if (!P) return ($statbar.textContent = ""); $statbar.innerHTML = `${P.이름} Lv${P.레벨} · ❤️${P.HP}/${P.최대HP} · 💧${P.신수}/${P.최대신수} · 🪙${P.돈} · ${FLOORS[P.현재층]?.name || P.현재층} · ⭐${P.랭킹.등급}`; }
+function bar() { if (!P) return ($statbar.textContent = ""); const f = getFloor(P.현재층); $statbar.innerHTML = `${P.이름} Lv${P.레벨} · ❤️${P.HP}/${P.최대HP} · 💧${P.신수}/${P.최대신수} · 🪙${P.돈} · ${f ? (f.floor || "") + "층/" + TOWER_HEIGHT : P.현재층} · ⭐${P.랭킹.등급}`; }
 const save = () => localStorage.setItem(SAVE_KEY, JSON.stringify(P));
 const load = () => { const s = localStorage.getItem(SAVE_KEY); return s ? JSON.parse(s) : null; };
 
@@ -84,7 +88,7 @@ function rebind() { /* 메뉴 복귀 후 버튼 핸들러는 화면 재호출이
 // ── 층 진입 ───────────────────────────────────────────────────────
 function enterFloor(fid, silent) {
   P.현재층 = fid; save(); bar();
-  const f = FLOORS[fid]; clr();
+  const f = getFloor(fid); clr();
   el(`<h2>${f.floor != null ? f.floor + "층 — " : ""}${f.name}</h2>`);
   gm(f.분위기묘사 || "");
   const cleared = P.클리어층.includes(fid);
@@ -100,7 +104,7 @@ function presentTest(f) {
   const t = f.test;
   if (t) gm(`<i>[${t.type}] ${t.name || ""}</i> ${t.설명}`);
   const type = t?.type || "전투시험";
-  const enemies = f.적_id목록 || [];
+  const enemies = (f._procEnemies && f._procEnemies.length) ? f._procEnemies : (f.적_id목록 || []);
   if (["전투시험", "수호자대결", "생존시험"].includes(type) && enemies.length) {
     const label = type === "수호자대결" ? "가디언에 맞선다 ⚔" : type === "생존시험" ? "버텨낸다 ⚔" : "도전한다 ⚔";
     return setActions([{ label, cls: "danger", onClick: () => combat(enemies, () => clearFloor(f)) }, ...(allyOffer(f) || [])]);
@@ -141,9 +145,16 @@ function clearFloor(f) {
   if (!P.클리어층.includes(f.id)) P.클리어층.push(f.id);
   // 전투층이면 처치 기록
   for (const id of f.적_id목록 || []) if (ENEMIES[id] && !P.처치한강적.includes(id)) P.처치한강적.push(id);
-  // 보상: 권장전투력 기반 EXP + 약간의 돈/드랍
-  const cp = (f.적_id목록 || []).reduce((s, id) => s + (ENEMIES[id]?.권장전투력 || 0), 0) || (f.권장전투력 || 10);
-  award(cp * 4 + (f.floor || 1) * 10, "시험 통과");
+  // 보상: 권장전투력 기반 EXP + 약간의 돈/드랍 (절차층은 _procEnemies 기준)
+  const cp = (f._procEnemies && f._procEnemies.length)
+    ? f._procEnemies.reduce((s, e) => s + (e.cp || 0), 0)
+    : ((f.적_id목록 || []).reduce((s, id) => s + (ENEMIES[id]?.권장전투력 || 0), 0) || (f.권장전투력 || 10));
+  // 절차층(16~134)은 레벨 페이스(다음 레벨의 ~85%)로 지급해 층≈레벨을 유지.
+  const isProc = (f.id || "")[0] === "p";
+  const exp = isProc ? Math.round(expToNext(P.레벨) * 0.85 + cp * 2) : Math.round(cp * 4 + (f.floor || 1) * 16);
+  award(exp, "시험 통과");
+  // 절차층: 클리어 시 잠깐 숨을 고른다(부분 회복) — 긴장은 유지, 죽음의 악순환 방지
+  if (isProc) { P.HP = Math.min(P.최대HP, P.HP + Math.round(P.최대HP * 0.5)); P.신수 = Math.min(P.최대신수, P.신수 + Math.round(P.최대신수 * 0.55)); bar(); }
   P.돈 += (f.floor || 1) * 15 + 20;
   // 퀘스트 마일스톤
   questMilestone(f);
@@ -170,10 +181,15 @@ function recalc() { const r = rankResult(P); const prev = P.랭킹.등급; P.랭
 
 // ── 이동(연결) ────────────────────────────────────────────────────
 function travel(f, branchOnly) {
-  const conns = (f.연결 || []).filter((id) => FLOORS[id]);
-  if (!conns.length) return ending();
+  let conns = (f.연결 || []).filter((id) => getFloor(id));
+  // 손으로 만든 탑(최상단 floor15)의 끝 → 절차 생성으로 16층부터 134층까지 이어 오른다.
+  if (!conns.length) {
+    if ((f.floor || 0) >= TOWER_HEIGHT) return ending(true);
+    if (f.floor) conns = ["p" + (f.floor + 1)];
+    else return ending();
+  }
   if (!branchOnly) gm(P.클리어층.includes(f.id) ? "다음 길을 고른다." : "");
-  const btns = conns.map((id) => { const nf = FLOORS[id]; const tag = nf.kind === "거점층" ? " 🏕" : nf.kind === "숨겨진층" ? " ❓" : nf.kind === "수호자층" ? " 👹" : ""; return { label: `▶ ${nf.floor != null ? nf.floor + "층 " : ""}${nf.name}${tag}`, cls: nf.kind === "수호자층" ? "danger" : "", onClick: () => enterFloor(id) }; });
+  const btns = conns.map((id) => { const nf = getFloor(id); const tag = nf.kind === "거점층" ? " 🏕" : nf.kind === "숨겨진층" ? " ❓" : nf.kind === "수호자층" ? " 👹" : ""; return { label: `▶ ${nf.floor != null ? nf.floor + "층 " : ""}${nf.name}${tag}`, cls: nf.kind === "수호자층" ? "danger" : "", onClick: () => enterFloor(id) }; });
   if (f.kind === "거점층") btns.unshift({ label: "🏕 여기 머문다(상점/정비)", onClick: () => hub(f) });
   setActions(btns);
 }
@@ -271,11 +287,18 @@ function death() {
   localStorage.removeItem(SAVE_KEY);
   setActions([{ label: "처음으로", cls: "primary", onClick: title }]);
 }
-function ending() {
-  clr(); el(`<h1>🎉 정점에 닿다</h1>`, "center");
+function ending(top) {
+  clr();
   const r = rankResult(P);
-  gm(`<b>${P.이름}</b> — Lv${P.레벨} · 랭킹 ${r.등급}(점수 ${r.점수}, ${r.순위}위). 더 오를 층이 없다… 적어도 지금은.`);
-  gm("본편의 더 깊은 이야기는 <code>tower-of-god/</code> 에서 <code>claude</code>를 GM으로 두고 이어집니다.");
+  if (top) {
+    el(`<h1>👑 ${TOWER_HEIGHT}층 — 탑의 정점</h1>`, "center");
+    gm(`<b>${P.이름}</b> 이(가) 마침내 탑의 꼭대기에 닿았다. ${TOWER_HEIGHT}층, 모든 시험의 끝.`);
+    gm("이제 가장 간절한 소원을 말할 차례다. — 무엇을 빌겠는가?");
+  } else {
+    el(`<h1>🎉 여기까지</h1>`, "center");
+    gm(`<b>${P.이름}</b> — Lv${P.레벨} · 랭킹 ${r.등급}(점수 ${r.점수}, ${r.순위}위).`);
+  }
+  gm(`도달 — <b>${r.board.findIndex((b) => b._me) + 1}위</b> / 랭킹 ${r.등급}. 본편의 더 깊은 이야기는 <code>tower-of-god/</code> 에서 <code>claude</code>를 GM으로 두고 이어집니다.`);
   setActions([{ label: "정보 보기", onClick: menu }, { label: "처음으로", cls: "primary", onClick: title }]);
 }
 
