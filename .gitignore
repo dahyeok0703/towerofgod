@@ -36,3 +36,7 @@ tower-of-god/save/backups/
 # 실제 플레이 세이브(예시 파일만 추적)
 tower-of-god/save/player.json
 tower-of-god/save/world_state.json
+
+# 웹(StackBlitz) 빌드 산출물
+tower-of-god/web/node_modules/
+tower-of-god/web/dist/

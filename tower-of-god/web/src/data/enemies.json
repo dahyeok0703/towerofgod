@@ -1,0 +1,131 @@
+{
+  "_meta": {
+    "버전": "0.1.0-draft",
+    "설명": "적 스탯블록. floors.json의 적_id목록과 연결됨. 명칭/설정은 오리지널.",
+    "actor_schema": "{ name, level, tier, 권장전투력, stats{근력,민첩,체력,신수조작,신수저항,정신력}, hp, hp_max, shinsu, shinsu_max, skills[skill_id...], status[] }",
+    "비고": "skills는 data/skills.json의 id를 참조한다. 적도 같은 판정식을 쓴다. 수치는 placeholder로 엔진에서 조정 가능."
+  },
+
+  "enemies": {
+    "en_sentinel_doll": {
+      "name": "파수 인형", "level": 1, "tier": 1, "권장전투력": 8,
+      "stats": {"근력": 8, "민첩": 7, "체력": 8, "신수조작": 4, "신수저항": 5, "정신력": 5},
+      "hp": 32, "hp_max": 32, "shinsu": 10, "shinsu_max": 10,
+      "skills": ["fish_01"], "status": []
+    },
+    "en_gate_warden": {
+      "name": "관문 파수병", "level": 2, "tier": 1, "권장전투력": 14,
+      "stats": {"근력": 11, "민첩": 9, "체력": 11, "신수조작": 6, "신수저항": 7, "정신력": 6},
+      "hp": 48, "hp_max": 48, "shinsu": 16, "shinsu_max": 16,
+      "skills": ["fish_02", "fish_04"], "status": []
+    },
+    "en_storm_eel": {
+      "name": "폭우 뱀장어", "level": 3, "tier": 2, "권장전투력": 20,
+      "stats": {"근력": 10, "민첩": 14, "체력": 10, "신수조작": 12, "신수저항": 9, "정신력": 8},
+      "hp": 54, "hp_max": 54, "shinsu": 24, "shinsu_max": 24,
+      "skills": ["spear_02", "wave_02"], "status": []
+    },
+    "en_mud_lurker": {
+      "name": "진창 잠복자", "level": 3, "tier": 2, "권장전투력": 20,
+      "stats": {"근력": 13, "민첩": 11, "체력": 13, "신수조작": 7, "신수저항": 11, "정신력": 7},
+      "hp": 56, "hp_max": 56, "shinsu": 18, "shinsu_max": 18,
+      "skills": ["scout_02", "fish_01"], "status": []
+    },
+    "en_gladiator_doll": {
+      "name": "검투 인형", "level": 4, "tier": 2, "권장전투력": 30,
+      "stats": {"근력": 16, "민첩": 13, "체력": 14, "신수조작": 8, "신수저항": 12, "정신력": 8},
+      "hp": 78, "hp_max": 78, "shinsu": 22, "shinsu_max": 22,
+      "skills": ["fish_02", "fish_05"], "status": []
+    },
+    "en_iron_brute": {
+      "name": "강철 거구", "level": 5, "tier": 3, "권장전투력": 36,
+      "stats": {"근력": 19, "민첩": 8, "체력": 18, "신수조작": 9, "신수저항": 15, "정신력": 9},
+      "hp": 120, "hp_max": 120, "shinsu": 26, "shinsu_max": 26,
+      "skills": ["fish_02", "fish_04", "fish_05"], "status": []
+    },
+    "en_trap_construct": {
+      "name": "기관 함정체", "level": 4, "tier": 3, "권장전투력": 32,
+      "stats": {"근력": 12, "민첩": 15, "체력": 12, "신수조작": 14, "신수저항": 12, "정신력": 10},
+      "hp": 70, "hp_max": 70, "shinsu": 30, "shinsu_max": 30,
+      "skills": ["spear_04", "scout_07"], "status": []
+    },
+    "en_silent_watcher": {
+      "name": "잠든 감시자", "level": 5, "tier": 3, "권장전투력": 30,
+      "stats": {"근력": 14, "민첩": 17, "체력": 13, "신수조작": 13, "신수저항": 13, "정신력": 12},
+      "hp": 82, "hp_max": 82, "shinsu": 28, "shinsu_max": 28,
+      "skills": ["scout_06", "scout_02"], "status": []
+    },
+    "en_vault_keeper": {
+      "name": "보관고 수호기관 '녹테'", "level": 6, "tier": 4, "권장전투력": 40,
+      "stats": {"근력": 18, "민첩": 12, "체력": 17, "신수조작": 18, "신수저항": 18, "정신력": 13},
+      "hp": 160, "hp_max": 160, "shinsu": 40, "shinsu_max": 40,
+      "skills": ["fish_05", "light_05"], "status": []
+    },
+    "en_drill_phantom": {
+      "name": "훈련 환영", "level": 6, "tier": 3, "권장전투력": 38,
+      "stats": {"근력": 13, "민첩": 18, "체력": 13, "신수조작": 16, "신수저항": 13, "정신력": 12},
+      "hp": 88, "hp_max": 88, "shinsu": 34, "shinsu_max": 34,
+      "skills": ["spear_03", "spear_05"], "status": []
+    },
+    "en_hunter_pack": {
+      "name": "사냥 무리", "level": 7, "tier": 4, "권장전투력": 50,
+      "stats": {"근력": 16, "민첩": 20, "체력": 14, "신수조작": 12, "신수저항": 14, "정신력": 11},
+      "hp": 96, "hp_max": 96, "shinsu": 30, "shinsu_max": 30,
+      "skills": ["scout_02", "spear_02"], "status": []
+    },
+    "en_ambusher": {
+      "name": "매복꾼", "level": 7, "tier": 4, "권장전투력": 52,
+      "stats": {"근력": 17, "민첩": 22, "체력": 15, "신수조작": 14, "신수저항": 14, "정신력": 13},
+      "hp": 102, "hp_max": 102, "shinsu": 34, "shinsu_max": 34,
+      "skills": ["scout_06", "scout_02"], "status": []
+    },
+    "en_eye_bloom": {
+      "name": "눈동자 꽃", "level": 8, "tier": 4, "권장전투력": 58,
+      "stats": {"근력": 12, "민첩": 16, "체력": 14, "신수조작": 22, "신수저항": 18, "정신력": 18},
+      "hp": 110, "hp_max": 110, "shinsu": 48, "shinsu_max": 48,
+      "skills": ["light_02", "light_05"], "status": []
+    },
+    "en_patrol_construct": {
+      "name": "순찰 기관", "level": 8, "tier": 4, "권장전투력": 60,
+      "stats": {"근력": 19, "민첩": 17, "체력": 17, "신수조작": 16, "신수저항": 18, "정신력": 13},
+      "hp": 130, "hp_max": 130, "shinsu": 36, "shinsu_max": 36,
+      "skills": ["spear_02", "fish_02"], "status": []
+    },
+    "en_guardian_hwerok": {
+      "name": "각성한 가디언 '회록'", "level": 12, "tier": 5, "권장전투력": 78,
+      "stats": {"근력": 30, "민첩": 22, "체력": 28, "신수조작": 26, "신수저항": 28, "정신력": 24},
+      "hp": 520, "hp_max": 520, "shinsu": 90, "shinsu_max": 90,
+      "skills": ["fish_07", "fish_05", "fish_06"], "status": []
+    },
+    "en_guardian_echo": {
+      "name": "가디언의 메아리", "level": 11, "tier": 5, "권장전투력": 70,
+      "stats": {"근력": 22, "민첩": 24, "체력": 22, "신수조작": 28, "신수저항": 24, "정신력": 22},
+      "hp": 300, "hp_max": 300, "shinsu": 80, "shinsu_max": 80,
+      "skills": ["spear_06", "light_05"], "status": []
+    },
+    "en_sand_swarm": {
+      "name": "모래 무리", "level": 9, "tier": 4, "권장전투력": 55,
+      "stats": {"근력": 14, "민첩": 18, "체력": 12, "신수조작": 12, "신수저항": 12, "정신력": 10},
+      "hp": 60, "hp_max": 60, "shinsu": 20, "shinsu_max": 20,
+      "skills": ["scout_02"], "status": []
+    },
+    "en_burrower": {
+      "name": "모래 굴착수", "level": 10, "tier": 4, "권장전투력": 62,
+      "stats": {"근력": 23, "민첩": 14, "체력": 20, "신수조작": 13, "신수저항": 17, "정신력": 12},
+      "hp": 150, "hp_max": 150, "shinsu": 30, "shinsu_max": 30,
+      "skills": ["fish_05", "fish_02"], "status": []
+    },
+    "en_chain_golem": {
+      "name": "사슬 골렘", "level": 11, "tier": 5, "권장전투력": 72,
+      "stats": {"근력": 26, "민첩": 12, "체력": 26, "신수조작": 16, "신수저항": 22, "정신력": 14},
+      "hp": 260, "hp_max": 260, "shinsu": 40, "shinsu_max": 40,
+      "skills": ["fish_05", "spear_04"], "status": []
+    },
+    "en_guardian_jeoksa": {
+      "name": "대가디언 '적사'", "level": 15, "tier": 5, "권장전투력": 130,
+      "stats": {"근력": 38, "민첩": 28, "체력": 36, "신수조작": 34, "신수저항": 36, "정신력": 30},
+      "hp": 900, "hp_max": 900, "shinsu": 140, "shinsu_max": 140,
+      "skills": ["fish_08", "spear_07", "wave_07", "fish_06"], "status": []
+    }
+  }
+}
