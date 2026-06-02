@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.venv/
+venv/
+env/
+
+# 환경/비밀
+.env
+.env.local
+
+# OS / 에디터
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# 로그
+*.log
+
+# 세이브 파일은 추적하되, 백업/임시/자동 세이브는 무시
+tower-of-god/save/*.bak
+tower-of-god/save/*.tmp
+tower-of-god/save/autosave_*.json
