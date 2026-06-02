@@ -108,7 +108,23 @@ python3 engine/rank.py recalc --actor save/player.json
 - 평판은 **명성/악명** 두 축으로 누적한다(상쇄 없음). 선택의 시험·배신은 악명을, 구원·협동은
   명성을 올린다. 효과는 `rules/social.md` 참조.
 
-### 2.3 랭커 권역(Ranker Zone) 진입 연출
+### 2.3 탐험·퀘스트·이벤트 규칙
+
+- **이동/탐험 시** 랜덤 이벤트를 확인한다(임의로 지어내지 말 것).
+```bash
+python3 engine/quest.py trigger --floor f04 --record        # 현재 층 이벤트 추첨
+```
+- 이벤트 선택지의 **판정은 `resolve.py check`**, 보상/피해는 inventory·resolve 로 처리한다.
+- **퀘스트**는 `quest.py` 로 진행한다(시작/진행/완료). 완료 시 보상·분기를 반영한다.
+```bash
+python3 engine/quest.py start    --quest qm_02
+python3 engine/quest.py complete --quest qm_02 --branch 팀 --actor save/player.json
+```
+- **분기 선택의 결과는 `save/world_state.json` 에 영구 저장**된다(되돌릴 수 없음).
+  GM은 매 턴 world_state 를 읽어 죽은/배신한 NPC·세력 변화·개방 지역과 **모순 없이** 진행한다.
+- 줄거리·대사는 새로 창작하되 정전 세계관·인물·관계와 모순되지 않게 한다(→ `rules/story.md`).
+
+### 2.4 랭커 권역(Ranker Zone) 진입 연출
 
 - 등급이 **랭커**에 도달하면(`랭커권역: true`) 단순 숫자가 아니라 **사건**으로 다룬다.
 - 진입 조건(개념): 랭커 티어 점수 + 특정 가디언/대시험 통과 + (선택) 추천/사사.
