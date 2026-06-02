@@ -24,6 +24,9 @@ import save as SAVE       # noqa: E402
 STATS = ["근력", "민첩", "체력", "신수조작", "신수저항", "정신력"]
 REQUIRED = ["이름", "포지션", "레벨", "경험치", "스탯", "HP", "최대HP",
             "신수", "최대신수", "배운스킬", "인벤토리", "장비", "돈", "현재층"]
+# player.json 에 있으면 안 되는 내부 엔진 키(전투 시 임시 생성됨)
+INTERNAL_KEYS = {"hp", "hp_max", "shinsu", "shinsu_max", "stats", "skills",
+                 "_def_reduce", "_acc_bonus", "runtime_id"}
 SLOT_KIND = {"무기": "무기", "방어구": "방어구", "장신구": "장신구"}
 
 
@@ -36,6 +39,13 @@ def validate_player(player):
             errors.append(f"필수 필드 누락: {f}")
     if errors:  # 핵심 필드가 없으면 이후 검사 불가
         return errors, warnings
+
+    # 1.5) 내부 엔진 키 오염 검사 (player.json 은 한국어 정본 키만 가져야 함)
+    leaked = INTERNAL_KEYS & set(player.keys())
+    if leaked:
+        errors.append(f"내부 엔진 키 오염(세이브 손상 의심): {sorted(leaked)} — "
+                      f"player.json 에는 한국어 정본 키만 있어야 한다. "
+                      f"전투 결과는 HP/신수 등 정본 필드로만 반영하라.")
 
     stats = player["스탯"]
     level = player["레벨"]

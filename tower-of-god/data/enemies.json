@@ -26,9 +26,9 @@
       "skills": ["spear_02", "wave_02"], "status": []
     },
     "en_mud_lurker": {
-      "name": "진창 잠복자", "level": 3, "tier": 2, "권장전투력": 22,
+      "name": "진창 잠복자", "level": 3, "tier": 2, "권장전투력": 20,
       "stats": {"근력": 13, "민첩": 11, "체력": 13, "신수조작": 7, "신수저항": 11, "정신력": 7},
-      "hp": 66, "hp_max": 66, "shinsu": 18, "shinsu_max": 18,
+      "hp": 56, "hp_max": 56, "shinsu": 18, "shinsu_max": 18,
       "skills": ["scout_02", "fish_01"], "status": []
     },
     "en_gladiator_doll": {
