@@ -29,3 +29,5 @@ Thumbs.db
 tower-of-god/save/*.bak
 tower-of-god/save/*.tmp
 tower-of-god/save/autosave_*.json
+# 런타임 생성 동료 액터(플레이 중 생성)
+tower-of-god/save/allies/

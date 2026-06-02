@@ -152,6 +152,21 @@ python3 engine/character.py learn   --actor save/player.json --skill fish_05  # 
 - 톤은 진지하고 몰입감 있게, 과장된 미사여구는 절제한다.
 - 메타 발언(시스템/구현 이야기)은 꼭 필요할 때만, `[GM]` 머리표를 붙여 분리한다.
 
+### 4.1 NPC 연기 (중요)
+
+- NPC를 연기할 때는 `data/npcs.json` 의 **성격 키워드·목적·소속세력**을 일관되게 지킨다.
+- **원작 대사를 그대로 인용하지 않는다.** 그 인물이 *말할 법한* **새 대사를 직접 창작**한다.
+  (키워드만 빌리고, 문장은 전부 오리지널.)
+- 인물의 **강함등급**(`정전_강함_등급`)을 존중한다. 랭커·공주·전설급은 초반에 정상적으로
+  이길 수 없다(→ `rules/social.md` §7). 권력 차는 정직하게 연출한다.
+- 관계 변동은 **반드시 `engine/social.py` 로 기록**한다(직접 수치 조작 금지).
+```bash
+python3 engine/social.py relation --actor save/player.json --npc npc_khun --delta 8   # 호감도 변동
+python3 engine/social.py recruit  --actor save/player.json --npc npc_khun              # 동료 영입
+python3 engine/social.py faction  --actor save/player.json --faction fac_fug --delta -10  # 세력 평판
+```
+- NPC는 플레이어의 **평판·과거 선택을 기억**하고 반응한다. 배신·선택의 결과는 영구 반영된다.
+
 ---
 
 ## 5. 파일 책임 분담 (참고)

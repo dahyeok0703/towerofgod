@@ -410,20 +410,31 @@ def _short_state(actor):
 # 3) 턴제 전투 (combat) — start / step
 # ──────────────────────────────────────────────────────────────────────────
 
-def combat_start(player, enemy_refs, skills, enemies, seed=None):
+def combat_start(player, enemy_refs, skills, enemies, seed=None, ally_refs=None):
     rng = RNG(seed=seed)
     enemy_actors = []
     for i, ref in enumerate(enemy_refs):
         e = load_actor(ref, enemies)
         e["runtime_id"] = f"e{i}"
         enemy_actors.append(e)
+    ally_actors = []
+    for i, ref in enumerate(ally_refs or []):
+        a = load_actor(ref, enemies)
+        a["runtime_id"] = f"a{i}"
+        ally_actors.append(a)
+    cooldowns = {"player": {}}
+    for e in enemy_actors:
+        cooldowns[e["runtime_id"]] = {}
+    for a in ally_actors:
+        cooldowns[a["runtime_id"]] = {}
     state = {
         "command": "combat", "phase": "start",
         "seed": seed, "round": 1, "status": "ongoing",
         "rng_state": rng.state_json(),
-        "player": player, "enemies": enemy_actors,
-        "cooldowns": {"player": {}, **{e["runtime_id"]: {} for e in enemy_actors}},
+        "player": player, "allies": ally_actors, "enemies": enemy_actors,
+        "cooldowns": cooldowns,
         "log": [{"event": "전투 시작",
+                 "allies": [a["name"] for a in ally_actors],
                  "enemies": [e["name"] for e in enemy_actors]}],
         "available_actions": _player_actions(player, skills),
     }
@@ -437,6 +448,7 @@ def combat_step(state, action, skills, enemies):
 
     rng = RNG(state=state["rng_state"])
     player = _ensure_actor(state["player"])
+    ally_actors = [_ensure_actor(a) for a in state.get("allies", [])]
     enemy_actors = [_ensure_actor(e) for e in state["enemies"]]
     cooldowns = state["cooldowns"]
     log = []
@@ -448,46 +460,98 @@ def combat_step(state, action, skills, enemies):
         log.append(_run_player_action(rng, player, enemy_actors, action,
                                       skills, cooldowns))
 
-    living = [e for e in enemy_actors if e["hp"] > 0]
-    if not living:
-        state.update(_finish(state, player, enemy_actors, rng, log, "victory"))
+    if all(e["hp"] <= 0 for e in enemy_actors):
+        state.update(_finish(state, player, ally_actors, enemy_actors, rng, log, "victory"))
         return state
 
-    # ── 적 행동 (민첩 순) ─────────────────────────────────────────────
-    for enemy in sorted(living, key=lambda e: -effective_agi(e)):
+    # ── 동료(AI) 행동 ────────────────────────────────────────────────
+    party = [player] + ally_actors
+    for ally in sorted([a for a in ally_actors if a["hp"] > 0],
+                       key=lambda a: -effective_agi(a)):
+        if _has_status(ally, "속박"):
+            log.append({"actor": ally["name"], "event": "속박되어 행동 불가"})
+            continue
+        log.append(_ally_act(rng, ally, party, enemy_actors,
+                             cooldowns[ally["runtime_id"]], skills))
+        if all(e["hp"] <= 0 for e in enemy_actors):
+            state.update(_finish(state, player, ally_actors, enemy_actors, rng, log, "victory"))
+            return state
+
+    # ── 적 행동 (민첩 순, 파티 최저 HP 표적) ──────────────────────────
+    for enemy in sorted([e for e in enemy_actors if e["hp"] > 0],
+                        key=lambda e: -effective_agi(e)):
         if enemy["hp"] <= 0:
             continue
         if _has_status(enemy, "속박"):
             log.append({"actor": enemy["name"], "event": "속박되어 행동 불가"})
             continue
+        target = _enemy_target(player, ally_actors)
         skill = _enemy_choose(enemy, cooldowns[enemy["runtime_id"]], skills)
-        ex = resolve_exchange(rng, enemy, player, skill)
+        ex = resolve_exchange(rng, enemy, target, skill)
         log.append(ex)
         cd = int(skill.get("쿨다운", 0))
         if cd > 0:
             cooldowns[enemy["runtime_id"]][skill["id"]] = cd
         if player["hp"] <= 0:
-            state.update(_finish(state, player, enemy_actors, rng, log, "defeat"))
+            state.update(_finish(state, player, ally_actors, enemy_actors, rng, log, "defeat"))
             return state
 
     # ── 라운드 마감: 상태이상/쿨다운 정리 ────────────────────────────
-    _tick_round([player] + enemy_actors, cooldowns, log)
+    _tick_round([player] + ally_actors + enemy_actors, cooldowns, log)
     if player["hp"] <= 0:
-        state.update(_finish(state, player, enemy_actors, rng, log, "defeat"))
+        state.update(_finish(state, player, ally_actors, enemy_actors, rng, log, "defeat"))
         return state
     if all(e["hp"] <= 0 for e in enemy_actors):
-        state.update(_finish(state, player, enemy_actors, rng, log, "victory"))
+        state.update(_finish(state, player, ally_actors, enemy_actors, rng, log, "victory"))
         return state
 
     state.update({
         "phase": "step", "round": state["round"] + 1, "status": "ongoing",
-        "rng_state": rng.state_json(), "player": player, "enemies": enemy_actors,
+        "rng_state": rng.state_json(), "player": player,
+        "allies": ally_actors, "enemies": enemy_actors,
         "cooldowns": cooldowns, "log": log,
         "player_state": _short_state(player),
+        "allies_state": [_short_state(a) for a in ally_actors],
         "enemies_state": [_short_state(e) for e in enemy_actors],
         "available_actions": _player_actions(player, skills),
     })
     return state
+
+
+def _enemy_target(player, ally_actors):
+    """적이 노릴 파티원: 살아있는 파티원 중 최저 HP(현실적). 플레이어 포함."""
+    living = [m for m in [player] + ally_actors if m["hp"] > 0]
+    return min(living, key=lambda m: m["hp"]) if living else player
+
+
+def _ally_act(rng, ally, party, enemy_actors, ally_cd, skills):
+    """동료 AI: 위기의 아군이 있으면 치유, 아니면 최고 배율 공격."""
+    # 회복 스킬 보유 + 위태로운 아군 있으면 치유
+    heal_sids = [s for s in ally.get("skills", []) if s in HEAL_SKILLS
+                 and ally["shinsu"] >= int(skills[s].get("신수소모", 0))
+                 and ally_cd.get(s, 0) <= 0]
+    hurt = [m for m in party if m["hp"] > 0 and m["hp"] < m["hp_max"] * 0.5]
+    if heal_sids and hurt:
+        target = min(hurt, key=lambda m: m["hp"] / m["hp_max"])
+        sk = skills[heal_sids[0]]
+        ex = resolve_exchange(rng, ally, target, sk)
+        _set_cd(ally_cd, sk)
+        return ex
+    # 공격
+    living = [e for e in enemy_actors if e["hp"] > 0]
+    if not living:
+        return {"actor": ally["name"], "event": "대기"}
+    sk = _enemy_choose(ally, ally_cd, skills)  # 같은 선택 로직 재사용(피해/디버프)
+    target = min(living, key=lambda e: e["hp"])
+    ex = resolve_exchange(rng, ally, target, sk)
+    _set_cd(ally_cd, sk)
+    return ex
+
+
+def _set_cd(cd_map, skill):
+    cd = int(skill.get("쿨다운", 0))
+    if cd > 0:
+        cd_map[skill["id"]] = cd
 
 
 def _run_player_action(rng, player, enemy_actors, action, skills, cooldowns):
@@ -564,12 +628,14 @@ def _tick_round(actors, cooldowns, log):
                 del cooldowns[owner][sid]
 
 
-def _finish(state, player, enemy_actors, rng, log, result):
+def _finish(state, player, ally_actors, enemy_actors, rng, log, result):
     return {
         "phase": "end", "status": result, "rng_state": rng.state_json(),
-        "round": state["round"], "player": player, "enemies": enemy_actors,
+        "round": state["round"], "player": player,
+        "allies": ally_actors, "enemies": enemy_actors,
         "cooldowns": state["cooldowns"], "log": log,
         "player_state": _short_state(player),
+        "allies_state": [_short_state(a) for a in ally_actors],
         "enemies_state": [_short_state(e) for e in enemy_actors],
         "result": result,
     }
@@ -614,6 +680,7 @@ def main(argv=None):
     p_cmb.add_argument("--mode", choices=["start", "step"], default="start")
     p_cmb.add_argument("--attacker", help="(start) 플레이어 액터 경로")
     p_cmb.add_argument("--enemies", help="(start) 적 id 쉼표구분")
+    p_cmb.add_argument("--allies", help="(start) 동료 액터 경로/적id 쉼표구분")
     p_cmb.add_argument("--state", help="(step) 전투 상태 JSON 경로")
     p_cmb.add_argument("--action", help="(step) 행동 JSON 문자열")
     p_cmb.add_argument("--seed", type=int, default=None)
@@ -641,7 +708,9 @@ def main(argv=None):
         if args.mode == "start":
             player = load_actor(args.attacker, enemies)
             enemy_refs = [r.strip() for r in (args.enemies or "").split(",") if r.strip()]
-            _emit(combat_start(player, enemy_refs, skills, enemies, seed=args.seed))
+            ally_refs = [r.strip() for r in (args.allies or "").split(",") if r.strip()]
+            _emit(combat_start(player, enemy_refs, skills, enemies,
+                               seed=args.seed, ally_refs=ally_refs))
         else:
             state = _load_json(args.state)
             action = json.loads(args.action) if args.action else {"type": "pass"}
