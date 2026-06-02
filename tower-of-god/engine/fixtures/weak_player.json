@@ -1,0 +1,10 @@
+{
+  "name": "신참 도전자",
+  "position": "fisherman",
+  "level": 1,
+  "stats": {"근력": 9, "민첩": 8, "체력": 9, "신수조작": 6, "신수저항": 6, "정신력": 7},
+  "hp": 50, "hp_max": 50,
+  "shinsu": 18, "shinsu_max": 18,
+  "skills": ["fish_01", "fish_02", "fish_03", "fish_04"],
+  "status": []
+}

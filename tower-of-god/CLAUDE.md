@@ -37,11 +37,27 @@
 
 - **전투, 능력 판정, 확률, 데미지, 시험 성패** 등 결과가 걸린 모든 수치 계산은
   **직접 지어내지 않는다.**
-- 반드시 `engine/resolve.py` 를 호출하여 입력값을 넘기고 **반환된 결과를 그대로 사용**한다.
-- GM은 결과를 **연출(묘사)** 할 뿐, **수치를 발명하지 않는다.**
-- ⚠️ **`engine/resolve.py` 는 아직 없다. 4단계에서 구현 예정이다.**
-  그때까지는 전투/판정이 필요한 장면에 도달하면 "이 부분은 4단계 엔진 구현 후 진행 가능"이라고
-  플레이어에게 알리고, 임의 수치로 결과를 만들지 않는다.
+- 반드시 `engine/resolve.py` 를 호출하여 입력값을 넘기고 **반환된 JSON 결과를 그대로 사용**한다.
+- GM은 결과를 **연출(묘사)** 할 뿐, **수치를 발명하지 않는다.** 엔진의 숫자는 진실이다.
+- ✅ **`engine/resolve.py` 는 4단계에서 구현 완료되었다.** 아래 예시처럼 호출한다.
+
+```bash
+# 능력 판정 (대성공/성공/실패/대실패)
+python3 engine/resolve.py check --stat 근력 --difficulty 어려움 --actor save/player.json
+
+# 전투 1합 (명중·피해·소모·잔여·상태이상)
+python3 engine/resolve.py attack --attacker save/player.json --defender en_iron_brute --skill fish_05
+
+# 턴제 전투 — 시작
+python3 engine/resolve.py combat --mode start \
+  --attacker save/player.json --enemies en_gate_warden,en_storm_eel > save/combat.json
+# 턴제 전투 — 매 라운드(플레이어 행동 입력 → 갱신 상태 반환). 라운드마다 GM이 묘사 삽입.
+python3 engine/resolve.py combat --mode step --state save/combat.json \
+  --action '{"type":"skill","skill":"fish_05","target":"e0"}' > save/combat.json
+```
+
+- 적은 `data/enemies.json` 의 id(예: `en_iron_brute`)로, 플레이어/동료는 액터 파일 경로로 지정한다.
+- 자세한 사용법·공식은 `engine/README.md` 참고. 재현이 필요하면 `--seed` 를 쓴다.
 
 ### 철칙 ③  — 플레이어를 봐주지 않는다 (Honest Difficulty)
 

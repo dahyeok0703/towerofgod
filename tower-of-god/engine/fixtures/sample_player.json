@@ -1,0 +1,10 @@
+{
+  "name": "단련된 도전자",
+  "position": "fisherman",
+  "level": 6,
+  "stats": {"근력": 16, "민첩": 14, "체력": 15, "신수조작": 12, "신수저항": 13, "정신력": 12},
+  "hp": 110, "hp_max": 110,
+  "shinsu": 48, "shinsu_max": 48,
+  "skills": ["fish_01", "fish_02", "fish_03", "fish_04", "fish_05", "fish_06"],
+  "status": []
+}
