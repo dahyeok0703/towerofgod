@@ -40,3 +40,7 @@ tower-of-god/save/world_state.json
 # 웹(StackBlitz) 빌드 산출물
 tower-of-god/web/node_modules/
 tower-of-god/web/dist/
+
+# 루트 웹 앱 빌드 산출물
+/node_modules/
+/dist/
